@@ -24,12 +24,12 @@ const (
 var (
 	createOpsProcessed = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "create_processed_ops_total",
-		Help: "The total number of processed /create requests",
+		Help: "The total number of processed PUT /create requests",
 	})
 	
-	urlOpsProcessed = promauto.NewCounter(prometheus.CounterOpts{
-		Name: "url_processed_ops_total",
-		Help: "The total number of processed /<tinyurl> requests",
+	getOpsProcessed = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "get_processed_ops_total",
+		Help: "The total number of processed GET /<tinyurl> requests",
 	})
 	
 	createOpTime = promauto.NewSummary(prometheus.SummaryOpts{
@@ -37,9 +37,9 @@ var (
 		Help: "The duration of /create request",
 	})
 	
-	urlOpTime = promauto.NewSummary(prometheus.SummaryOpts{
+	getOpTime = promauto.NewSummary(prometheus.SummaryOpts{
 		Name: "url_processed_op_time_mcs",
-		Help: "The duration of /<tinyurl> request",
+		Help: "The duration of GET /<tinyurl> request",
 	})
 )
 
@@ -64,8 +64,8 @@ func setupRouter(conn *sql.DB) *gin.Engine {
 		urlGetHandler(conn, c)
 		elapsed := time.Since(start).Microseconds()
 
-		urlOpsProcessed.Inc()
-		urlOpTime.Observe(float64(elapsed))
+		getOpsProcessed.Inc()
+		getOpTime.Observe(float64(elapsed))
 	})
 
 	return r

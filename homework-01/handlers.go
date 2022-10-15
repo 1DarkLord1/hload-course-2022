@@ -19,14 +19,23 @@ func createPutHandler(conn *sql.DB, c *gin.Context) {
 		return
 	}
 	
-	err := insertLongurl(conn, body.Longurl)
-
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-		return
-	}
-
 	tinyurl, err := getTinyurl(conn, body.Longurl)
+
+	if err == sql.ErrNoRows {
+		err = insertLongurl(conn, body.Longurl)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+			return
+		}
+
+		tinyurl, err = getTinyurl(conn, body.Longurl)
+
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
+			return
+		}
+	}
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
