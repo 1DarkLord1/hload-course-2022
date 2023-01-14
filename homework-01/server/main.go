@@ -1,24 +1,14 @@
 package main
 
 import (
-	"database/sql"
-	"fmt"
 	"net/http"
-	"time"
+	"main/utils"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-)
-
-const (
-	host     = "localhost"
-	port     = 5432
-	user     = "dword"
-	password = "admin"
-	dbname   = "postgres"
 )
 
 var (
@@ -43,7 +33,7 @@ var (
 	})
 )
 
-func setupRouter(conn *sql.DB) *gin.Engine {
+func setupRouter(service *Service) *gin.Engine {
 	r := gin.Default()
 
 	r.GET("/ping", func(c *gin.Context) {
@@ -51,53 +41,19 @@ func setupRouter(conn *sql.DB) *gin.Engine {
 	})
 
 	r.PUT("/create", func(c *gin.Context) {
-		start := time.Now()
-		createPutHandler(conn, c)
-		elapsed := time.Since(start).Microseconds()
-
-		createOpsProcessed.Inc()
-		createOpTime.Observe(float64(elapsed))
+		utils.MeasureTime(func() { service.createPutHandler(c) }, createOpsProcessed, createOpTime)
 	})
 
 	r.GET("/:url", func(c *gin.Context) {
-		start := time.Now()
-		urlGetHandler(conn, c)
-		elapsed := time.Since(start).Microseconds()
-
-		getOpsProcessed.Inc()
-		getOpTime.Observe(float64(elapsed))
+		utils.MeasureTime(func() { service.urlGetHandler(c) }, createOpsProcessed, createOpTime)
 	})
 
 	return r
 }
 
 func main() {
-	fmt.Println(sql.Drivers())
-
-	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
-		"password=%s dbname=%s sslmode=disable",
-		host, port, user, password, dbname)
-
-	conn, err := sql.Open("postgres", psqlInfo)
-
-	if err != nil {
-		fmt.Println("Failed to open", err)
-		panic("exit")
-	}
-
-	err = conn.Ping()
-
-	if err != nil {
-		fmt.Println("Failed to ping database", err)
-		panic("exit")
-	}
-
-	err = createUrlStorageTable(conn)
-
-	if err != nil {
-		fmt.Println("Failed create table", err)
-		panic("exit")
-	}
+	service := &Service{}
+	service.init()
 
 	http.Handle("/metrics", promhttp.Handler())
 
@@ -105,6 +61,6 @@ func main() {
 		http.ListenAndServe(":8088", nil)
 	}()
 	
-	r := setupRouter(conn)
+	r := setupRouter(service)
 	r.Run(":8080")
 }

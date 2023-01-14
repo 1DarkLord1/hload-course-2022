@@ -1,8 +1,10 @@
-package main
+package utils
 
 import (
 	"fmt"
 	"strings"
+	"time"
+	"github.com/prometheus/client_golang/prometheus"
 )
 
 const base = uint32(62)
@@ -27,7 +29,7 @@ func byteToUint(u byte) (uint32, error) {
 	return uint32(i), nil
 }
 
-func uintToString(i uint32) (string, error) {
+func UintToString(i uint32) (string, error) {
 	s := ""
 
 	for j := 0; j < strLen; j++ {
@@ -46,7 +48,7 @@ func uintToString(i uint32) (string, error) {
 	return s, nil
 }
 
-func stringToUint(s string) (uint32, error) {
+func StringToUint(s string) (uint32, error) {
 	if len(s) != strLen {
 		return 0, fmt.Errorf("wrong string len")
 	}
@@ -67,4 +69,13 @@ func stringToUint(s string) (uint32, error) {
 	}
 
 	return i, nil
+}
+
+func MeasureTime(action func(), counter prometheus.Counter, summary prometheus.Summary) {
+	start := time.Now()
+	action()
+	elapsed := time.Since(start).Microseconds()
+
+	counter.Inc()
+	summary.Observe(float64(elapsed))
 }

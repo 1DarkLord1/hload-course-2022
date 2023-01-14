@@ -1,14 +1,14 @@
 package main
 
-import 	"database/sql"
+import "database/sql"
 
-func createUrlStorageTable(conn *sql.DB) error {
+func createUrlStorageTableDB(conn *sql.DB) error {
 	_, err := conn.Exec("create table if not exists url_storage ( longurl varchar primary key, tinyurl serial )")
 
 	return err
 }
 
-func getTinyurl(conn *sql.DB, longurl string) (uint32, error) {
+func getTinyurlDB(conn *sql.DB, longurl string) (uint32, error) {
 	stmt, err := conn.Prepare("select ( tinyurl ) from url_storage where longurl = $1")
 
 	if err != nil {
@@ -24,7 +24,7 @@ func getTinyurl(conn *sql.DB, longurl string) (uint32, error) {
 	return tinyurl, err
 }
 
-func getLongurl(conn *sql.DB, tinyurl uint32) (string, error) {
+func getLongurlDB(conn *sql.DB, tinyurl uint32) (string, error) {
 	stmt, err := conn.Prepare("select ( longurl ) from url_storage where tinyurl = $1")
 
 	if err != nil {
@@ -40,16 +40,18 @@ func getLongurl(conn *sql.DB, tinyurl uint32) (string, error) {
 	return longurl, err
 }
 
-func insertLongurl(conn *sql.DB, longurl string) error {
-	stmt, err := conn.Prepare("insert into url_storage ( longurl ) values ( $1 ) on conflict do nothing")
+func insertLongurlDB(conn *sql.DB, longurl string) (uint32, error) {
+	stmt, err := conn.Prepare("insert into url_storage ( longurl ) values ( $1 ) on conflict do nothing returning tinyurl")
 
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	defer stmt.Close()
 
-	_, err = stmt.Exec(longurl)
+	var tinyurl uint32
 
-	return err
+	err = stmt.QueryRow(longurl).Scan(&tinyurl)
+
+	return tinyurl, err
 }

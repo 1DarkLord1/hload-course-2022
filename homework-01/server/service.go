@@ -3,15 +3,24 @@ package main
 import (
 	"net/http"
 	"database/sql"
-
 	"github.com/gin-gonic/gin"
+	"main/utils"
 )
 
 type PutCreateRequest struct {
 	Longurl string `json:"longurl"`
 }
 
-func createPutHandler(conn *sql.DB, c *gin.Context) {
+type Service struct {
+	Storage *LongurlTinyurlStorage
+}
+
+func (s *Service) init() {
+	s.Storage = &LongurlTinyurlStorage{}
+	s.Storage.init()
+}
+
+func (s *Service) createPutHandler(c *gin.Context) {
 	var body PutCreateRequest
 
 	if err := c.BindJSON(&body); err != nil {
@@ -19,17 +28,10 @@ func createPutHandler(conn *sql.DB, c *gin.Context) {
 		return
 	}
 	
-	tinyurl, err := getTinyurl(conn, body.Longurl)
+	tinyurl, err := s.Storage.getTinyurl(body.Longurl)
 
 	if err == sql.ErrNoRows {
-		err = insertLongurl(conn, body.Longurl)
-
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
-			return
-		}
-
-		tinyurl, err = getTinyurl(conn, body.Longurl)
+		tinyurl, err = s.Storage.insertLongurl(body.Longurl)
 
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
@@ -42,7 +44,7 @@ func createPutHandler(conn *sql.DB, c *gin.Context) {
 		return
 	}
 
-	tinyurlStr, err := uintToString(tinyurl)
+	tinyurlStr, err := utils.UintToString(tinyurl)
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
@@ -52,17 +54,22 @@ func createPutHandler(conn *sql.DB, c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"longurl": body.Longurl, "tinyurl": tinyurlStr})
 }
 
-func urlGetHandler(conn *sql.DB, c *gin.Context) {
+func (s *Service) urlGetHandler(c *gin.Context) {
 	tinyurlStr := c.Params.ByName("url")
 
-	tinyurl, err := stringToUint(tinyurlStr)
+	tinyurl, err := utils.StringToUint(tinyurlStr)
 
 	if err != nil {
 		c.JSON(404, gin.H{"message": err.Error()})
 		return
 	}
 
-	longurl, err := getLongurl(conn, tinyurl)
+	longurl, err := s.Storage.getLongurl(tinyurl)
+
+	if err == sql.ErrNoRows {
+		c.JSON(404, gin.H{"message": err.Error()})
+		return
+	}
 
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"message": err.Error()})
